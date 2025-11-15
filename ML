@@ -1,0 +1,145 @@
+# -----------------------------------------------
+# 📘 Student Performance Prediction (Mini Project)
+# Using Study Time to Predict if a Student Passed
+# -----------------------------------------------
+
+# Import required libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+
+# -----------------------------------------------
+# STEP 1: Load and Explore the Dataset
+# -----------------------------------------------
+df = pd.read_csv("/content/student-por.csv")  # Make sure this file is uploaded
+
+print("🔹 First 5 rows of the dataset:")
+print(df.head())
+
+print("\n🔹 Dataset Information:")
+print(df.info())
+
+print("\n🔹 Missing values in dataset:")
+print(df.isnull().sum())
+
+# -----------------------------------------------
+# STEP 2: Preprocessing
+# -----------------------------------------------
+# Convert target column 'passed' from text ('yes'/'no') to numbers (1/0)
+# The 'passed' column does not exist in student-por.csv, so we'll create it based on G3 (final grade).
+# Assuming a passing grade is 10 or higher (out of 20, a common scale in such datasets).
+df['passed_numeric'] = (df['G3'] >= 10).astype(int)
+
+# Feature and target
+X = df[['studytime']]   # Feature
+y = df['passed_numeric'] # Target
+
+# Split data into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=0
+)
+
+# -----------------------------------------------
+# STEP 3: Data Visualization (EDA)
+# -----------------------------------------------
+plt.figure(figsize=(12, 5))
+
+# Histogram of study time
+plt.subplot(1, 2, 1)
+plt.hist(df['studytime'], bins=10, color='skyblue', edgecolor='black')
+plt.title("Distribution of Study Time")
+plt.xlabel("Hours of Study")
+plt.ylabel("Number of Students")
+
+# Bar chart for pass/fail counts
+plt.subplot(1, 2, 2)
+df['passed_numeric'].value_counts().plot(kind='bar', color=['salmon', 'lightgreen'])
+plt.title("Number of Students Passed vs Failed")
+plt.xlabel("Pass Status (0=Fail, 1=Pass)")
+plt.ylabel("Count")
+plt.xticks(ticks=[0, 1], labels=['Fail', 'Pass'], rotation=0)
+
+plt.tight_layout()
+plt.show()
+
+# -----------------------------------------------
+# STEP 4: Model Training
+# -----------------------------------------------
+models = {
+    "Logistic Regression": LogisticRegression(),
+    "Decision Tree": DecisionTreeClassifier(random_state=0),
+    "Gradient Boosting": GradientBoostingClassifier(random_state=0),
+    "Support Vector Machine": SVC(probability=True)
+}
+
+results = {}
+
+for name, model in models.items():
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    results[name] = accuracy
+    print(f"\n✅ {name} Accuracy: {accuracy:.3f}")
+    print(classification_report(y_test, y_pred))
+
+# -----------------------------------------------
+# STEP 5: Accuracy Comparison Graph
+# -----------------------------------------------
+plt.figure(figsize=(8, 5))
+plt.bar(results.keys(), results.values(), color=['blue', 'green', 'orange', 'purple'])
+plt.title("Model Accuracy Comparison")
+plt.ylabel("Accuracy Score")
+plt.xticks(rotation=20)
+plt.ylim(0, 1)
+plt.grid(True, linestyle="--", alpha=0.7)
+plt.show()
+
+# -----------------------------------------------
+# STEP 6: Visualize Predictions
+# -----------------------------------------------
+plt.figure(figsize=(10, 6))
+plt.scatter(X, y, color="black", label="Actual Data (0=Fail, 1=Pass)")
+
+X_range = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+colors = ['blue', 'green', 'orange', 'purple']
+
+for (name, model), color in zip(models.items(), colors):
+    if hasattr(model, 'predict_proba'):
+        y_proba = model.predict_proba(X_range)[:, 1]
+        plt.plot(X_range, y_proba, color=color, label=f"{name} (Pass Probability)")
+    else:
+        y_pred = model.predict(X_range)
+        plt.plot(X_range, y_pred, color=color, linestyle='--', label=f"{name} Prediction")
+
+plt.title("Model Predictions vs Study Time")
+plt.xlabel("Study Time (Hours)")
+plt.ylabel("Probability of Passing")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# -----------------------------------------------
+# STEP 7: Confusion Matrix Visualization
+# -----------------------------------------------
+fig, axes = plt.subplots(2, 2, figsize=(10, 8))
+axes = axes.ravel()
+
+for ax, (name, model) in zip(axes, models.items()):
+    y_pred = model.predict(X_test)
+    cm = confusion_matrix(y_test, y_pred)
+    ax.imshow(cm, cmap="Blues")
+    ax.set_title(f"{name}")
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    for i in range(2):
+        for j in range(2):
+            ax.text(j, i, cm[i, j], ha='center', va='center', color='black')
+
+plt.tight_layout()
+plt.show()
